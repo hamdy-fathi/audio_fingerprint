@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+python-multipart
+librosa
+numpy
+scipy
+scikit-learn
+matplotlib
+joblib
+openai-whisper
+edge-tts
+pydub
+soundfile
+websockets
+aiofiles
