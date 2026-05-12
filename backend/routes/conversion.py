@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 from transcriber import transcribe_file
 from dialect_converter import (
-    convert_text_to_dialect, synthesize_speech_sync,
+    convert_text_to_dialect, synthesize_speech,
     DIALECT_VOICES, DIALECT_DICTIONARIES, DIALECT_SENTENCES
 )
 from routes.upload import get_file_path
@@ -43,7 +43,7 @@ async def convert_dialect(req: ConvertRequest):
     converted_text = convert_text_to_dialect(original_text, source, req.target_dialect)
 
     # Step 4: Synthesize speech in target dialect
-    audio_bytes = synthesize_speech_sync(converted_text, req.target_dialect, req.gender or 'male')
+    audio_bytes = await synthesize_speech(converted_text, req.target_dialect, req.gender or 'male')
     audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
 
     return {
