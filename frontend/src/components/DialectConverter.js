@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { RefreshCw, Play } from 'lucide-react';
 import { convertDialect } from '@/lib/api';
 
@@ -13,16 +13,26 @@ const DIALECTS = [
 export default function DialectConverter({ fileId, sourceDialect }) {
   const [target, setTarget] = useState('');
   const [gender, setGender] = useState('male');
+  const [pitch, setPitch] = useState(0);
+  const [rate, setRate] = useState(0);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const audioRef = useRef(null);
 
+  useEffect(() => {
+    setResult(null);
+  }, [fileId]);
+
   const handleConvert = async () => {
     if (!fileId || !target) return;
+    
+    const originalText = result?.original_text || null;
     setLoading(true);
-    setResult(null);
+    
     try {
-      const data = await convertDialect(fileId, target, sourceDialect, gender);
+      const pitchStr = pitch >= 0 ? `+${pitch}Hz` : `${pitch}Hz`;
+      const rateStr = rate >= 0 ? `+${rate}%` : `${rate}%`;
+      const data = await convertDialect(fileId, target, sourceDialect, gender, pitchStr, rateStr, originalText);
       setResult(data);
     } catch (e) {
       alert('Conversion failed: ' + e.message);
@@ -77,6 +87,14 @@ export default function DialectConverter({ fileId, sourceDialect }) {
             <option value="male">Male</option>
             <option value="female">Female</option>
           </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: 6 }}>PITCH ({pitch > 0 ? '+' : ''}{pitch}Hz)</div>
+          <input type="range" min="-50" max="50" value={pitch} onChange={(e) => setPitch(parseInt(e.target.value))} style={{ width: '100%' }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: 6 }}>RATE ({rate > 0 ? '+' : ''}{rate}%)</div>
+          <input type="range" min="-50" max="50" value={rate} onChange={(e) => setRate(parseInt(e.target.value))} style={{ width: '100%' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
           <button className="btn btn-primary" onClick={handleConvert} disabled={!target || loading} id="convert-btn">

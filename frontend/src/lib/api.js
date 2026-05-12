@@ -72,18 +72,30 @@ export function connectTranscriptionWS(fileId, onSegment, onDone, onError) {
   return ws;
 }
 
-export async function convertDialect(fileId, targetDialect, sourceDialect, gender) {
+export async function convertDialect(fileId, targetDialect, sourceDialect, gender, pitch, rate, originalText) {
   const res = await fetch(`${API_BASE}/convert-dialect`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      file_id: fileId,
+      file_id: fileId || null,
       target_dialect: targetDialect,
       source_dialect: sourceDialect || null,
       gender: gender || 'male',
+      pitch: pitch || '+0Hz',
+      rate: rate || '+0%',
+      original_text: originalText || null,
     }),
   });
-  if (!res.ok) throw new Error('Conversion failed');
+  if (!res.ok) {
+    let errorMsg = 'Conversion failed';
+    try {
+      const errorData = await res.json();
+      errorMsg = errorData.detail || errorData.message || JSON.stringify(errorData);
+    } catch (e) {
+      errorMsg = await res.text();
+    }
+    throw new Error(`Conversion failed: ${errorMsg}`);
+  }
   return res.json();
 }
 

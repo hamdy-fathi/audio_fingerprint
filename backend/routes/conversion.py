@@ -16,25 +16,33 @@ router = APIRouter(prefix="/api", tags=["conversion"])
 
 
 class ConvertRequest(BaseModel):
-    file_id: str
+    file_id: Optional[str] = None
     target_dialect: str
     source_dialect: Optional[str] = None
     gender: Optional[str] = 'male'
+    pitch: Optional[str] = '+0Hz'
+    rate: Optional[str] = '+0%'
+    original_text: Optional[str] = None
 
 
 @router.post("/convert-dialect")
 async def convert_dialect(req: ConvertRequest):
     """Convert audio to a different dialect."""
-    path = get_file_path(req.file_id)
-    if not path or not os.path.exists(path):
-        raise HTTPException(404, "File not found")
+    if not req.file_id and not req.original_text:
+        raise HTTPException(400, "Must provide either file_id or original_text")
 
     if req.target_dialect not in DIALECT_VOICES:
         raise HTTPException(400, f"Invalid dialect. Choose from: {list(DIALECT_VOICES.keys())}")
 
-    # Step 1: Transcribe original audio
-    transcription = transcribe_file(path)
-    original_text = transcription['full_text']
+    # Step 1: Transcribe original audio (skip if original_text is provided)
+    if req.original_text:
+        original_text = req.original_text
+    else:
+        path = get_file_path(req.file_id)
+        if not path or not os.path.exists(path):
+            raise HTTPException(404, "File not found")
+        transcription = transcribe_file(path)
+        original_text = transcription['full_text']
 
     # Step 2: Detect source dialect if not provided
     source = req.source_dialect or 'egyptian'
@@ -43,7 +51,13 @@ async def convert_dialect(req: ConvertRequest):
     converted_text = convert_text_to_dialect(original_text, source, req.target_dialect)
 
     # Step 4: Synthesize speech in target dialect
-    audio_bytes = await synthesize_speech(converted_text, req.target_dialect, req.gender or 'male')
+    audio_bytes = await synthesize_speech(
+        converted_text, 
+        req.target_dialect, 
+        req.gender or 'male',
+        pitch=req.pitch or '+0Hz',
+        rate=req.rate or '+0%'
+    )
     audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
 
     return {
