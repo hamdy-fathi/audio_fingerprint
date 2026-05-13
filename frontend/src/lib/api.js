@@ -105,6 +105,31 @@ export async function getDialectVoices() {
   return res.json();
 }
 
+export async function synthesizeText(text, dialect, gender, pitch, rate) {
+  const res = await fetch(`${API_BASE}/synthesize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text,
+      dialect,
+      gender: gender || 'male',
+      pitch: pitch || '+0Hz',
+      rate: rate || '+0%',
+    }),
+  });
+  if (!res.ok) {
+    let errorMsg = 'Synthesis failed';
+    try {
+      const errorData = await res.json();
+      errorMsg = errorData.detail || JSON.stringify(errorData);
+    } catch (e) {
+      errorMsg = await res.text();
+    }
+    throw new Error(errorMsg);
+  }
+  return res.json();
+}
+
 export async function mixAndClassify(fileId1, fileId2, weight) {
   const res = await fetch(`${API_BASE}/mix-and-classify`, {
     method: 'POST',

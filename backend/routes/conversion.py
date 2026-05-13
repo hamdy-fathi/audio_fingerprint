@@ -78,3 +78,32 @@ async def list_dialect_voices():
         'sample_sentences': DIALECT_SENTENCES,
         'dictionaries': {k: dict(list(v.items())[:10]) for k, v in DIALECT_DICTIONARIES.items()}
     }
+
+
+class SynthesizeRequest(BaseModel):
+    text: str
+    dialect: str
+    gender: Optional[str] = 'male'
+    pitch: Optional[str] = '+0Hz'
+    rate: Optional[str] = '+0%'
+
+
+@router.post("/synthesize")
+async def synthesize_text(req: SynthesizeRequest):
+    """Synthesize speech from text directly (no transcription or conversion)."""
+    if req.dialect not in DIALECT_VOICES:
+        raise HTTPException(400, f"Invalid dialect. Choose from: {list(DIALECT_VOICES.keys())}")
+
+    audio_bytes = await synthesize_speech(
+        req.text,
+        req.dialect,
+        req.gender or 'male',
+        pitch=req.pitch or '+0Hz',
+        rate=req.rate or '+0%'
+    )
+    audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+
+    return {
+        'audio_base64': audio_b64,
+        'voice_used': DIALECT_VOICES[req.dialect][req.gender or 'male']
+    }
