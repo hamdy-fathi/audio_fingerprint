@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 from transcriber import transcribe_file
 from dialect_converter import (
-    convert_text_to_dialect, synthesize_speech,
+    convert_text_to_dialect, convert_text_with_ai, synthesize_speech,
     DIALECT_VOICES, DIALECT_DICTIONARIES, DIALECT_SENTENCES
 )
 from routes.upload import get_file_path
@@ -23,6 +23,7 @@ class ConvertRequest(BaseModel):
     pitch: Optional[str] = '+0Hz'
     rate: Optional[str] = '+0%'
     original_text: Optional[str] = None
+    mode: Optional[str] = 'dictionary'  # 'dictionary' or 'ai'
 
 
 @router.post("/convert-dialect")
@@ -48,7 +49,11 @@ async def convert_dialect(req: ConvertRequest):
     source = req.source_dialect or 'egyptian'
 
     # Step 3: Convert text to target dialect
-    converted_text = convert_text_to_dialect(original_text, source, req.target_dialect)
+    mode = req.mode or 'dictionary'
+    if mode == 'ai':
+        converted_text = convert_text_with_ai(original_text, source, req.target_dialect)
+    else:
+        converted_text = convert_text_to_dialect(original_text, source, req.target_dialect)
 
     # Step 4: Synthesize speech in target dialect
     audio_bytes = await synthesize_speech(

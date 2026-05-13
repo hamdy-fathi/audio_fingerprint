@@ -4,6 +4,17 @@ Transcribes audio, converts words to target dialect, synthesizes new audio.
 """
 import asyncio, os, io, base64, tempfile
 import edge_tts
+from openai import OpenAI
+
+# OpenAI client for AI-powered dialect translation
+_openai_client = None
+
+def _get_openai_client():
+    global _openai_client
+    if _openai_client is None:
+        api_key = None
+        _openai_client = OpenAI(api_key=api_key)
+    return _openai_client
 
 # Voice mapping for each dialect (male and female)
 DIALECT_VOICES = {
@@ -876,6 +887,61 @@ def convert_text_to_dialect(text, source_dialect, target_dialect):
             converted = converted.replace(msa_word, dialect_word)
 
     return converted
+
+
+DIALECT_NAMES = {
+    'egyptian': 'Egyptian Arabic (اللهجة المصرية)',
+    'gulf': 'Gulf Arabic / Khaleeji (اللهجة الخليجية)',
+    'levantine': 'Levantine Arabic / Shami (اللهجة الشامية)',
+    'maghrebi': 'Maghrebi Arabic / Darija (اللهجة المغربية)',
+    'msa': 'Modern Standard Arabic (الفصحى)',
+}
+
+
+def convert_text_with_ai(text, source_dialect, target_dialect):
+    """Convert text from one Arabic dialect to another using OpenAI."""
+    if source_dialect == target_dialect:
+        return text
+
+    source_name = DIALECT_NAMES.get(source_dialect, source_dialect)
+    target_name = DIALECT_NAMES.get(target_dialect, target_dialect)
+
+    prompt = (
+        f"You are an expert Arabic linguist specializing in Arabic dialects. "
+        f"Translate the following text from {source_name} to {target_name}. "
+        f"Rules:\n"
+        f"- Output ONLY the translated text, nothing else.\n"
+        f"- Do NOT add any explanation, notes, or transliteration.\n"
+        f"- Preserve the original meaning and tone.\n"
+        f"- Use authentic, natural dialect vocabulary and grammar.\n"
+        f"- Keep proper nouns unchanged.\n\n"
+        f"Text to translate:\n{text}"
+    )
+
+    try:
+        client = _get_openai_client()
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a precise Arabic dialect translator. "
+                        "You respond with ONLY the translated text. "
+                        "No explanations, no labels, no extra formatting."
+                    )
+                },
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=1024,
+        )
+        translated = response.choices[0].message.content.strip()
+        return translated
+    except Exception as e:
+        print(f"OpenAI translation failed: {e}")
+        # Fallback to dictionary-based conversion
+        return convert_text_to_dialect(text, source_dialect, target_dialect)
 
 
 async def synthesize_speech(text, dialect, gender='male', pitch='+0Hz', rate='+0%'):

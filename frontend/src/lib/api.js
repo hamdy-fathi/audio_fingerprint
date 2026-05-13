@@ -72,7 +72,7 @@ export function connectTranscriptionWS(fileId, onSegment, onDone, onError) {
   return ws;
 }
 
-export async function convertDialect(fileId, targetDialect, sourceDialect, gender, pitch, rate, originalText) {
+export async function convertDialect(fileId, targetDialect, sourceDialect, gender, pitch, rate, originalText, mode) {
   const res = await fetch(`${API_BASE}/convert-dialect`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -84,6 +84,7 @@ export async function convertDialect(fileId, targetDialect, sourceDialect, gende
       pitch: pitch || '+0Hz',
       rate: rate || '+0%',
       original_text: originalText || null,
+      mode: mode || 'dictionary',
     }),
   });
   if (!res.ok) {

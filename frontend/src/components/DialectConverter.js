@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { RefreshCw, Play, Pause, Volume2, ArrowRight, Mic, SlidersHorizontal, Pencil, RotateCcw } from 'lucide-react';
+import { RefreshCw, Play, Pause, Volume2, ArrowRight, Mic, SlidersHorizontal, Pencil, RotateCcw, Sparkles, BookOpen } from 'lucide-react';
 import { convertDialect, synthesizeText } from '@/lib/api';
 
 const DIALECTS = [
@@ -15,6 +15,7 @@ export default function DialectConverter({ fileId, sourceDialect }) {
   const [gender, setGender] = useState('male');
   const [pitch, setPitch] = useState(0);
   const [rate, setRate] = useState(0);
+  const [mode, setMode] = useState('dictionary');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -44,7 +45,7 @@ export default function DialectConverter({ fileId, sourceDialect }) {
     try {
       const pitchStr = pitch >= 0 ? `+${pitch}Hz` : `${pitch}Hz`;
       const rateStr = rate >= 0 ? `+${rate}%` : `${rate}%`;
-      const data = await convertDialect(fileId, target, sourceDialect, gender, pitchStr, rateStr, originalText);
+      const data = await convertDialect(fileId, target, sourceDialect, gender, pitchStr, rateStr, originalText, mode);
       setResult(data);
       setEditedText(data.converted_text);
       setTextEdited(false);
@@ -127,7 +128,35 @@ export default function DialectConverter({ fileId, sourceDialect }) {
         </div>
       </div>
 
-      {/* Section 2: Voice Controls */}
+      {/* Section 2: Translation Mode */}
+      <div className="converter-section">
+        <div className="converter-section-label">
+          <Sparkles size={12} />
+          <span>Translation Mode</span>
+        </div>
+        <div className="converter-mode-toggle">
+          <button
+            className={`mode-btn ${mode === 'dictionary' ? 'active' : ''}`}
+            onClick={() => setMode('dictionary')}
+            id="mode-dictionary"
+          >
+            <BookOpen size={14} />
+            <span>Dictionary</span>
+            <span className="mode-btn-sub">Word-by-word mapping</span>
+          </button>
+          <button
+            className={`mode-btn ${mode === 'ai' ? 'active' : ''}`}
+            onClick={() => setMode('ai')}
+            id="mode-ai"
+          >
+            <Sparkles size={14} />
+            <span>AI Translation</span>
+            <span className="mode-btn-sub">OpenAI GPT-4o</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Section 3: Voice Controls */}
       <div className="converter-section">
         <div className="converter-section-label">
           <SlidersHorizontal size={12} />
