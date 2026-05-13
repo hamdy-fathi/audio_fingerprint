@@ -1,0 +1,10 @@
+              precision    recall  f1-score   support
+
+    Egyptian     0.9113    0.8248    0.8659       137
+        Gulf     0.8491    0.7438    0.7930       121
+   Levantine     0.7949    0.8493    0.8212       146
+    Maghrebi     0.7787    0.9135    0.8407       104
+
+    accuracy                         0.8307       508
+   macro avg     0.8335    0.8328    0.8302       508
+weighted avg     0.8359    0.8307    0.8305       508

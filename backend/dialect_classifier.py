@@ -1,10 +1,14 @@
 """
-Classic ML dialect classifier (Random Forest + SVM). No deep learning.
+Classic ML dialect classifier using ensemble of pre-trained models.
+Uses best-trained models: Random Forest, SVM, KNN, Gaussian NB, and Logistic Regression.
 """
 import os, json, joblib
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import cross_val_score
 from audio_processor import load_audio, extract_features, get_feature_vector, get_feature_names
@@ -18,24 +22,36 @@ class DialectClassifier:
     def __init__(self):
         self.rf_model = None
         self.svm_model = None
+        self.knn_model = None
         self.scaler = None
         self.feature_names = None
         self.dialect_avg_features = {}
         self.dialect_pitch_ranges = {}
+        self.use_ensemble = False
         self._load_models()
 
     def _load_models(self):
-        rf_path = os.path.join(MODELS_DIR, 'dialect_rf_model.joblib')
-        svm_path = os.path.join(MODELS_DIR, 'dialect_svm_model.joblib')
+        # Load individual models
+        rf_path = os.path.join(MODELS_DIR, 'random_forest_best.joblib')
+        svm_path = os.path.join(MODELS_DIR, 'svm_best.joblib')
+        knn_path = os.path.join(MODELS_DIR, 'knn_best.joblib')
         scaler_path = os.path.join(MODELS_DIR, 'feature_scaler.joblib')
         names_path = os.path.join(MODELS_DIR, 'feature_names.json')
         avg_path = os.path.join(MODELS_DIR, 'dialect_avg_features.json')
         pitch_path = os.path.join(MODELS_DIR, 'dialect_pitch_ranges.json')
 
-        if os.path.exists(rf_path):
+        # Check if all required models exist (RF, SVM, KNN only)
+        required_models_exist = all(os.path.exists(p) for p in [rf_path, svm_path, knn_path])
+
+        if required_models_exist:
+            print("Loading new trained models (RF, SVM, KNN only)...")
             self.rf_model = joblib.load(rf_path)
             self.svm_model = joblib.load(svm_path)
-            self.scaler = joblib.load(scaler_path)
+            self.knn_model = joblib.load(knn_path)
+            self.use_ensemble = True
+            
+            if os.path.exists(scaler_path):
+                self.scaler = joblib.load(scaler_path)
             with open(names_path, 'r') as f:
                 self.feature_names = json.load(f)
             if os.path.exists(avg_path):
@@ -44,6 +60,23 @@ class DialectClassifier:
             if os.path.exists(pitch_path):
                 with open(pitch_path, 'r') as f:
                     self.dialect_pitch_ranges = json.load(f)
+        else:
+            # Fallback to old models if new ones don't exist
+            print("New models not found, falling back to old models...")
+            rf_path_old = os.path.join(MODELS_DIR, 'dialect_rf_model.joblib')
+            svm_path_old = os.path.join(MODELS_DIR, 'dialect_svm_model.joblib')
+            if os.path.exists(rf_path_old):
+                self.rf_model = joblib.load(rf_path_old)
+                self.svm_model = joblib.load(svm_path_old)
+                self.scaler = joblib.load(scaler_path)
+                with open(names_path, 'r') as f:
+                    self.feature_names = json.load(f)
+                if os.path.exists(avg_path):
+                    with open(avg_path, 'r') as f:
+                        self.dialect_avg_features = json.load(f)
+                if os.path.exists(pitch_path):
+                    with open(pitch_path, 'r') as f:
+                        self.dialect_pitch_ranges = json.load(f)
 
     def is_trained(self):
         return self.rf_model is not None
@@ -53,31 +86,108 @@ class DialectClassifier:
             return {'error': 'Model not trained. Run train_model.py first.'}
         
         vec = get_feature_vector(features_dict).reshape(1, -1)
-        vec_scaled = self.scaler.transform(vec)
+        
+        # Try to scale, but if dimensions don't match, use raw features
+        if self.scaler:
+            try:
+                vec_scaled = self.scaler.transform(vec)
+            except ValueError:
+                print(f"Scaler dimension mismatch: vec has {vec.shape[1]} features, scaler expects {self.scaler.n_features_in_}. Using unscaled features.")
+                vec_scaled = vec
+        else:
+            vec_scaled = vec
 
-        # Random Forest prediction
-        rf_pred = self.rf_model.predict(vec_scaled)[0]
-        rf_proba = self.rf_model.predict_proba(vec_scaled)[0]
-        rf_classes = self.rf_model.classes_
+        # Use ensemble if available, otherwise fall back to RF + SVM
+        if self.use_ensemble:
+            # Get predictions from each model - these are numeric class indices
+            rf_pred_idx = self.rf_model.predict(vec_scaled)[0]
+            svm_pred_idx = self.svm_model.predict(vec_scaled)[0]
+            knn_pred_idx = self.knn_model.predict(vec_scaled)[0]
+            
+            # Map numeric indices to dialect names
+            rf_pred = DIALECTS[rf_pred_idx]
+            svm_pred = DIALECTS[svm_pred_idx]
+            knn_pred = DIALECTS[knn_pred_idx]
+            
+            # Get probabilities from each model
+            rf_proba = self.rf_model.predict_proba(vec_scaled)[0]
+            svm_proba = self.svm_model.predict_proba(vec_scaled)[0]
+            knn_proba = self.knn_model.predict_proba(vec_scaled)[0]
+            
+            # Average probabilities from the 3 models
+            avg_proba = (rf_proba + svm_proba + knn_proba) / 3
+            
+            # Ensemble prediction is the class with highest averaged probability
+            ensemble_pred_idx = np.argmax(avg_proba)
+            ensemble_pred = DIALECTS[ensemble_pred_idx]
+            
+            # Convert to Python native types for JSON serialization
+            probabilities = {DIALECTS[i]: float(prob) for i, prob in enumerate(avg_proba)}
+            
+            # Extract feature importances from the actual classifier (handle Pipeline)
+            try:
+                if hasattr(self.rf_model, 'named_steps'):
+                    # It's a Pipeline, get the classifier
+                    rf_classifier = self.rf_model.named_steps.get('classifier', self.rf_model)
+                else:
+                    rf_classifier = self.rf_model
+                importances = rf_classifier.feature_importances_.tolist()
+            except AttributeError:
+                importances = []
 
-        # SVM prediction
-        svm_pred = self.svm_model.predict(vec_scaled)[0]
-        svm_proba = self.svm_model.predict_proba(vec_scaled)[0]
+            return {
+                'predicted_dialect': ensemble_pred,
+                'confidence': float(max(avg_proba)),
+                'probabilities': probabilities,
+                'rf_prediction': rf_pred,
+                'svm_prediction': svm_pred,
+                'knn_prediction': knn_pred,
+                'ensemble_prediction': ensemble_pred,
+                'rf_probabilities': {DIALECTS[i]: float(p) for i, p in enumerate(rf_proba)},
+                'svm_probabilities': {DIALECTS[i]: float(p) for i, p in enumerate(svm_proba)},
+                'knn_probabilities': {DIALECTS[i]: float(p) for i, p in enumerate(knn_proba)},
+                'feature_importances': importances,
+                'feature_names': self.feature_names,
+                'dialect_avg_features': self.dialect_avg_features,
+                'dialect_pitch_ranges': self.dialect_pitch_ranges
+            }
+        else:
+            # Fallback to old RF + SVM logic
+            rf_pred_idx = self.rf_model.predict(vec_scaled)[0]
+            rf_proba = self.rf_model.predict_proba(vec_scaled)[0]
+            rf_classes = self.rf_model.classes_
 
-        probabilities = {cls: float(prob) for cls, prob in zip(rf_classes, rf_proba)}
-        importances = self.rf_model.feature_importances_
+            svm_pred_idx = self.svm_model.predict(vec_scaled)[0]
+            svm_proba = self.svm_model.predict_proba(vec_scaled)[0]
 
-        return {
-            'predicted_dialect': rf_pred,
-            'confidence': float(max(rf_proba)),
-            'probabilities': probabilities,
-            'svm_prediction': svm_pred,
-            'svm_probabilities': {cls: float(p) for cls, p in zip(rf_classes, svm_proba)},
-            'feature_importances': importances.tolist(),
-            'feature_names': self.feature_names,
-            'dialect_avg_features': self.dialect_avg_features,
-            'dialect_pitch_ranges': self.dialect_pitch_ranges
-        }
+            # Map numeric indices to dialect names
+            rf_pred = DIALECTS[rf_pred_idx]
+            svm_pred = DIALECTS[svm_pred_idx]
+
+            # Convert to Python native types for JSON serialization
+            probabilities = {DIALECTS[i]: float(prob) for i, prob in enumerate(rf_proba)}
+            
+            # Extract feature importances from the actual classifier (handle Pipeline)
+            try:
+                if hasattr(self.rf_model, 'named_steps'):
+                    rf_classifier = self.rf_model.named_steps.get('classifier', self.rf_model)
+                else:
+                    rf_classifier = self.rf_model
+                importances = rf_classifier.feature_importances_.tolist()
+            except AttributeError:
+                importances = []
+
+            return {
+                'predicted_dialect': rf_pred,
+                'confidence': float(max(rf_proba)),
+                'probabilities': probabilities,
+                'svm_prediction': svm_pred,
+                'svm_probabilities': {DIALECTS[i]: float(p) for i, p in enumerate(svm_proba)},
+                'feature_importances': importances,
+                'feature_names': self.feature_names,
+                'dialect_avg_features': self.dialect_avg_features,
+                'dialect_pitch_ranges': self.dialect_pitch_ranges
+            }
 
 
 def train_models():

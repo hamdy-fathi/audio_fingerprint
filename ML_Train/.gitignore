@@ -1,0 +1,13 @@
+# Secrets (never commit)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Large local cache (optional — remove this line if you want to commit the cache)
+data/features_cache.npz

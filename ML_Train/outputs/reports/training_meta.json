@@ -1,0 +1,37 @@
+{
+  "class_names": [
+    "Egyptian",
+    "Gulf",
+    "Levantine",
+    "Maghrebi"
+  ],
+  "random_state": 42,
+  "test_size": 0.2,
+  "use_pca": false,
+  "pca_components": null,
+  "cv_folds": 5,
+  "best_params": {
+    "svm": {
+      "clf__C": 10.0,
+      "clf__gamma": "scale"
+    },
+    "random_forest": {
+      "clf__max_depth": null,
+      "clf__min_samples_leaf": 1,
+      "clf__n_estimators": 400
+    },
+    "knn": {
+      "clf__n_neighbors": 3,
+      "clf__p": 1,
+      "clf__weights": "distance"
+    },
+    "logistic_regression": {
+      "clf__C": 1.0,
+      "clf__penalty": "l2",
+      "clf__solver": "lbfgs"
+    },
+    "gaussian_nb": {
+      "clf__var_smoothing": 1e-12
+    }
+  }
+}
