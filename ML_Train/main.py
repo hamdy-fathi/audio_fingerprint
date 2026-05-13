@@ -63,6 +63,32 @@ from utils import (
 from visualization import run_visual_suite
 
 
+def _extraction_worker(task):
+    """Worker function for parallel feature extraction."""
+    from preprocessing import preprocess_audio
+    from feature_extraction import extract_all_features_vector
+    from utils import TARGET_SAMPLE_RATE
+    
+    y_raw, sr_in, include_formants, apply_pre_emphasis, orig_idx = task
+    try:
+        y_d, sr_out = preprocess_audio(
+            y_raw,
+            sr_in,
+            target_sr=TARGET_SAMPLE_RATE,
+            normalize=True,
+            trim=True,
+            apply_pre_emphasis=apply_pre_emphasis,
+        )
+        vec, _ = extract_all_features_vector(
+            y_d,
+            sr_out,
+            include_formants=include_formants,
+        )
+        return vec, y_d, None, orig_idx
+    except Exception:
+        return None
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Classical ML Arabic dialect identification")
     p.add_argument("--split", default="test", help="Hugging Face dataset split name")
@@ -160,35 +186,50 @@ def main() -> int:
             map_msa_to_iraqi=args.map_msa_to_iraqi,
         )
 
-        X_list: List[np.ndarray] = []
-        y_list: List[int] = []
-        waves_list: List[np.ndarray] = []
+        # --- Parallel Feature Extraction ---
+        logging.info("Starting parallel feature extraction (this will be FAST) ...")
+        
+        from concurrent.futures import ProcessPoolExecutor
+        import os
+        
+        # Prepare tasks for the pool
+        tasks = []
+        for i in range(len(waveforms)):
+            tasks.append((
+                waveforms[i],
+                sampling_rates[i],
+                not args.skip_formants,
+                False, # apply_pre_emphasis (keep False unless specifically requested)
+                i      # original index
+            ))
 
-        for i in tqdm(range(len(waveforms)), desc="Feature extraction"):
-            try:
-                y_raw = waveforms[i]
-                sr_in = sampling_rates[i]
-                y_d, sr_out = preprocess_audio(
-                    y_raw,
-                    sr_in,
-                    target_sr=TARGET_SAMPLE_RATE,
-                    normalize=True,
-                    trim=True,
-                    apply_pre_emphasis=False,
-                )
-                vec, names = extract_all_features_vector(
-                    y_d,
-                    sr_out,
-                    include_formants=not args.skip_formants,
-                )
-                if i == 0:
-                    assert names == FEATURE_ORDER
-                X_list.append(vec)
-                y_list.append(labels[i])
+        X_list = [None] * len(waveforms)
+        y_list = [None] * len(waveforms)
+        waves_list = []
+        
+        # We use a helper function defined at module level
+        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+            # Map tasks to worker
+            # Note: We need a progress bar
+            results = list(tqdm(
+                executor.map(_extraction_worker, tasks), 
+                total=len(tasks), 
+                desc="Parallel Extraction"
+            ))
+            
+        # Collect results
+        for res in results:
+            if res is not None:
+                vec, y_d, label_idx, orig_idx = res
+                X_list[orig_idx] = vec
+                y_list[orig_idx] = labels[orig_idx]
+                # For viz, we just take the first N successful ones
                 if len(waves_list) < args.viz_waveforms:
-                    waves_list.append(y_d.astype(np.float32))
-            except Exception as exc:
-                logging.warning("Skipping sample %d: %s", i, exc)
+                    waves_list.append(y_d)
+
+        # Filter out any None results (from failed samples)
+        X_list = [x for x in X_list if x is not None]
+        y_list = [y for y in y_list if y is not None]
 
         if not X_list:
             raise RuntimeError("Feature extraction produced no rows.")

@@ -21,6 +21,7 @@ import numpy as np
 # -----------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_DIR = PROJECT_ROOT / "data"
+RAW_AUDIO_DIR = DATA_DIR / "raw_audio"
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 PLOTS_DIR = OUTPUTS_DIR / "plots"
 MODELS_DIR = OUTPUTS_DIR / "models"
@@ -306,26 +307,39 @@ def load_madis_via_api(
     
     label_to_idx = {name: i for i, name in enumerate(ordered)}
     
-    logging.info("Downloading %d audio files ...", len(row_data))
-    for url, c in tqdm(row_data, desc="Downloading audio"):
-        try:
-            # Download audio file
-            r_audio = requests.get(url, timeout=20)
-            r_audio.raise_for_status()
+    logging.info("Downloading %d audio files (storing locally in %s) ...", len(row_data), RAW_AUDIO_DIR)
+    RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+    
+    for url, c, idx in tqdm(row_data, desc="Downloading/Loading audio"):
+        local_path = RAW_AUDIO_DIR / f"{split}_{idx}.wav"
+        
+        y = None
+        sr = None
+        
+        if local_path.exists():
+            try:
+                y, sr = sf.read(local_path)
+            except Exception:
+                pass
+        
+        if y is None:
+            try:
+                r_audio = requests.get(url, timeout=20)
+                r_audio.raise_for_status()
+                with io.BytesIO(r_audio.content) as f:
+                    y, sr = sf.read(f)
+                    # Ensure float32 mono
+                    if y.ndim > 1:
+                        y = y.mean(axis=1)
+                    y = y.astype(np.float32)
+                sf.write(local_path, y, sr)
+            except Exception as e:
+                logging.debug("Failed to download/process audio from %s: %s", url, e)
+                continue
             
-            # Read into numpy
-            with io.BytesIO(r_audio.content) as f:
-                data, sr = sf.read(f)
-                # Ensure float32 mono
-                if data.ndim > 1:
-                    data = data.mean(axis=1)
-                data = data.astype(np.float32)
-                
-            waveforms.append(data)
-            sampling_rates.append(int(sr))
-            labels.append(label_to_idx[c])
-        except Exception as e:
-            logging.debug("Failed to download audio from %s: %s", url, e)
+        waveforms.append(y)
+        sampling_rates.append(int(sr))
+        labels.append(label_to_idx[c])
 
     logging.info("Successfully loaded %d utterances via API.", len(waveforms))
     return waveforms, sampling_rates, labels, ordered, label_to_idx
