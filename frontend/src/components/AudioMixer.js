@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Sliders, FolderOpen, Play, Plus } from 'lucide-react';
-import { getSamples, mixAndClassify } from '@/lib/api';
+import { Sliders, FolderOpen, Play, Pause, Plus, Upload } from 'lucide-react';
+import { getSamples, mixAndClassify, uploadFile } from '@/lib/api';
 
 const DIALECT_COLORS = {
   egyptian: 'var(--primary)', gulf: 'var(--secondary)',
@@ -19,7 +19,11 @@ export default function AudioMixer() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showPicker, setShowPicker] = useState(null);
+  const [playing, setPlaying] = useState(false);
+  const [uploading, setUploading] = useState(null);
   const audioRef = useRef(null);
+  const uploadInputRef = useRef(null);
+  const activeSlotRef = useRef(null);
 
   useEffect(() => { getSamples().then(setSamples).catch(() => {}); }, []);
 
@@ -34,11 +38,27 @@ export default function AudioMixer() {
     setLoading(false);
   }, [file1, file2, weight]);
 
-  const playMixed = () => {
+  const togglePlayback = () => {
     if (!result?.mixed_audio || !audioRef.current) return;
-    audioRef.current.src = `data:audio/wav;base64,${result.mixed_audio}`;
-    audioRef.current.play();
+    if (playing) {
+      audioRef.current.pause();
+      setPlaying(false);
+    } else {
+      if (!audioRef.current.src || audioRef.current.ended) {
+        audioRef.current.src = `data:audio/wav;base64,${result.mixed_audio}`;
+      }
+      audioRef.current.play();
+      setPlaying(true);
+    }
   };
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onEnded = () => setPlaying(false);
+    audio.addEventListener('ended', onEnded);
+    return () => audio.removeEventListener('ended', onEnded);
+  }, []);
 
   const pickFile = (slot, fileId, filename, dialect) => {
     const obj = { file_id: fileId, filename, dialect };
@@ -47,8 +67,45 @@ export default function AudioMixer() {
     setShowPicker(null);
   };
 
+  const handleUploadForSlot = async (slot, file) => {
+    if (!file) return;
+    setUploading(slot);
+    try {
+      const result = await uploadFile(file);
+      pickFile(slot, result.file_id, result.filename, null);
+    } catch (e) {
+      alert('Upload failed: ' + e.message);
+    }
+    setUploading(null);
+  };
+
+  const triggerUpload = (slot) => {
+    activeSlotRef.current = slot;
+    uploadInputRef.current?.click();
+  };
+
+  const onUploadChange = (e) => {
+    const file = e.target.files[0];
+    if (file && activeSlotRef.current) {
+      handleUploadForSlot(activeSlotRef.current, file);
+    }
+    e.target.value = '';
+  };
+
   const renderPicker = (slot) => (
-    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', maxHeight: 250, overflow: 'auto', padding: 8 }}>
+    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', maxHeight: 300, overflow: 'auto', padding: 8 }}>
+      {/* Upload option */}
+      <div
+        className="mixer-upload-option"
+        onClick={() => triggerUpload(slot)}
+      >
+        {uploading === slot ? (
+          <><div className="spinner" style={{ width: 14, height: 14 }} /> <span>Uploading...</span></>
+        ) : (
+          <><Upload size={14} /> <span>Upload External File</span></>
+        )}
+      </div>
+      <div style={{ borderBottom: '1px solid var(--border)', margin: '6px 0' }} />
       {Object.entries(samples).map(([dialect, data]) => (
         <div key={dialect}>
           <div className="sample-group-title">{data.label}</div>
@@ -70,11 +127,13 @@ export default function AudioMixer() {
         <span className="card-badge badge-warning">Weighted Average</span>
       </div>
 
+      <input ref={uploadInputRef} type="file" accept="audio/*" hidden onChange={onUploadChange} />
+
       <div className="mixer-slots">
         <div className={`mixer-slot ${file1 ? 'filled' : ''}`} style={{ position: 'relative' }}>
           {file1 ? (
             <><div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{file1.filename}</div>
-            <span className="card-badge badge-primary">{DIALECT_NAMES[file1.dialect] || 'Unknown'}</span>
+            <span className="card-badge badge-primary">{DIALECT_NAMES[file1.dialect] || 'Uploaded'}</span>
             <button className="btn btn-sm btn-secondary" onClick={() => setFile1(null)}>Change</button></>
           ) : (
             <button className="btn btn-secondary" onClick={() => setShowPicker(showPicker === 1 ? null : 1)} id="mixer-pick-1">
@@ -89,7 +148,7 @@ export default function AudioMixer() {
         <div className={`mixer-slot ${file2 ? 'filled' : ''}`} style={{ position: 'relative' }}>
           {file2 ? (
             <><div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{file2.filename}</div>
-            <span className="card-badge badge-secondary">{DIALECT_NAMES[file2.dialect] || 'Unknown'}</span>
+            <span className="card-badge badge-secondary">{DIALECT_NAMES[file2.dialect] || 'Uploaded'}</span>
             <button className="btn btn-sm btn-secondary" onClick={() => setFile2(null)}>Change</button></>
           ) : (
             <button className="btn btn-secondary" onClick={() => setShowPicker(showPicker === 2 ? null : 2)} id="mixer-pick-2">
@@ -121,7 +180,10 @@ export default function AudioMixer() {
         <div style={{ marginTop: 20 }}>
           <audio ref={audioRef} />
           <div style={{ marginBottom: 16 }}>
-            <button className="btn btn-accent" onClick={playMixed}><Play size={16} /> Play Mixed Audio</button>
+            <button className="btn btn-accent" onClick={togglePlayback}>
+              {playing ? <Pause size={16} /> : <Play size={16} />}
+              {playing ? 'Pause' : 'Play Mixed Audio'}
+            </button>
           </div>
 
           <div className="result-dialect" style={{ padding: 16 }}>

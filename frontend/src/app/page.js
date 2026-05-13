@@ -127,10 +127,8 @@ export default function Home() {
               ) : (
                 <>
                   <SpectrogramViewer spectrogramData={specData} />
-                  <div className="grid-2">
-                    <ClassificationResult classificationData={classData} />
-                    <FeatureVisualizer featureData={featData} />
-                  </div>
+                  <ClassificationResult classificationData={classData} />
+                  <FeatureVisualizer featureData={featData} />
                 </>
               )}
             </>
