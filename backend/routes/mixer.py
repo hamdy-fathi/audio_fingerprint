@@ -1,7 +1,8 @@
 """
 Audio mixer routes - mix two files and classify result.
 """
-import os
+import os, tempfile
+import soundfile as sf
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from audio_processor import (
@@ -10,11 +11,10 @@ from audio_processor import (
     audio_to_base64_wav
 )
 from feature_visualizer import plot_dialect_probabilities
-from dialect_classifier import DialectClassifier
+from dialect_classifier import predict_dialect
 from routes.upload import get_file_path
 
 router = APIRouter(prefix="/api", tags=["mixer"])
-classifier = DialectClassifier()
 
 
 class MixRequest(BaseModel):
@@ -47,16 +47,21 @@ async def mix_and_classify(req: MixRequest):
     spec = compute_spectrogram(mixed, mixed_sr)
     mel_spec = compute_mel_spectrogram(mixed, mixed_sr)
 
-    # Classify mixed audio
-    features = extract_features(mixed, mixed_sr)
-
+    # Classify mixed audio — write to a temp file since predict_dialect takes a path
     result = {}
-    if classifier.is_trained():
-        result = classifier.classify(features)
-        prob_chart = plot_dialect_probabilities(result['probabilities'])
-        result['probability_chart'] = prob_chart
-    else:
-        result = {'error': 'Model not trained'}
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            sf.write(tmp.name, mixed, mixed_sr)
+            tmp_path = tmp.name
+
+        result = predict_dialect(tmp_path)
+        if result.get('probabilities'):
+            result['probability_chart'] = plot_dialect_probabilities(result['probabilities'])
+    except Exception as e:
+        result = {'error': f'Classification failed: {str(e)}'}
+    finally:
+        if 'tmp_path' in locals() and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
     # Convert mixed audio to base64 for playback
     mixed_audio_b64 = audio_to_base64_wav(mixed, mixed_sr)
@@ -71,3 +76,4 @@ async def mix_and_classify(req: MixRequest):
         'probabilities': result.get('probabilities', {}),
         'probability_chart': result.get('probability_chart', None)
     }
+

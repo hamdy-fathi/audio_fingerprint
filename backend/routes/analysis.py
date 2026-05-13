@@ -12,11 +12,10 @@ from feature_visualizer import (
     plot_mfcc_comparison, plot_spectral_radar,
     plot_feature_importance, plot_pitch_contour, plot_dialect_probabilities
 )
-from dialect_classifier import DialectClassifier
+from dialect_classifier import predict_dialect
 from routes.upload import get_file_path
 
 router = APIRouter(prefix="/api", tags=["analysis"])
-classifier = DialectClassifier()
 
 
 class AnalysisRequest(BaseModel):
@@ -51,31 +50,21 @@ async def classify_dialect(req: AnalysisRequest):
     if not path or not os.path.exists(path):
         raise HTTPException(404, "File not found")
 
-    if not classifier.is_trained():
-        raise HTTPException(500, "Model not trained. Run train_model.py first.")
-
-    y, sr = load_audio(path)
-    features = extract_features(y, sr)
-    result = classifier.classify(features)
+    try:
+        result = predict_dialect(path)
+    except Exception as e:
+        raise HTTPException(500, f"Classification failed: {str(e)}")
 
     # Generate visualization charts
-    prob_chart = plot_dialect_probabilities(result['probabilities'])
-
-    importance_chart = None
-    if result.get('feature_importances') and result.get('feature_names'):
-        import numpy as np
-        importance_chart = plot_feature_importance(
-            np.array(result['feature_importances']),
-            result['feature_names']
-        )
+    prob_chart = None
+    if result.get('probabilities'):
+        prob_chart = plot_dialect_probabilities(result['probabilities'])
 
     return {
         'predicted_dialect': result['predicted_dialect'],
-        'confidence': result['confidence'],
-        'probabilities': result['probabilities'],
-        'svm_prediction': result['svm_prediction'],
+        'confidence': result.get('confidence', 0),
+        'probabilities': result.get('probabilities', {}),
         'probability_chart': prob_chart,
-        'importance_chart': importance_chart
     }
 
 
@@ -89,18 +78,11 @@ async def get_features(req: AnalysisRequest):
     y, sr = load_audio(path)
     features = extract_features(y, sr)
 
-    # Get dialect averages for comparison
-    dialect_avg = classifier.dialect_avg_features if classifier.is_trained() else {}
-    pitch_ranges = classifier.dialect_pitch_ranges if classifier.is_trained() else {}
-
-    # Generate comparison charts
-    mfcc_chart = plot_mfcc_comparison(features, dialect_avg) if dialect_avg else None
-    radar_chart = plot_spectral_radar(features, dialect_avg) if dialect_avg else None
-    pitch_chart = plot_pitch_contour(y, sr, pitch_ranges) if pitch_ranges else None
+    # Generate comparison charts (without dialect averages since the new classifier doesn't expose them)
+    pitch_chart = plot_pitch_contour(y, sr, {})
 
     return {
         'features': features,
-        'mfcc_chart': mfcc_chart,
-        'radar_chart': radar_chart,
         'pitch_chart': pitch_chart
     }
+

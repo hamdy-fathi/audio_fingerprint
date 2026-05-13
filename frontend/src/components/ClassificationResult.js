@@ -28,7 +28,6 @@ export default function ClassificationResult({ classificationData }) {
     <div className="card">
       <div className="card-header">
         <span className="card-title"><Target size={18} /> Classification Result</span>
-        <span className="card-badge badge-success">RF + SVM</span>
       </div>
 
       <div className="result-dialect">
