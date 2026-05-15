@@ -3,8 +3,21 @@ Dialect conversion module.
 Transcribes audio, converts words to target dialect, synthesizes new audio.
 """
 import asyncio, os, io, base64, tempfile
-import edge_tts
+from elevenlabs.client import ElevenLabs
 from openai import OpenAI
+
+# ── ElevenLabs client ─────────────────────────────────────────────────────────
+_elevenlabs_client = None
+
+def _get_elevenlabs_client():
+    global _elevenlabs_client
+    if _elevenlabs_client is None:
+        api_key = os.environ.get(
+            'ELEVENLABS_API_KEY',
+            'sk_76fd2c6eaa63ee30a2d3d1b80ad5534d5b29759c4c9ee540'
+        )
+        _elevenlabs_client = ElevenLabs(api_key=api_key)
+    return _elevenlabs_client
 
 # OpenAI client for AI-powered dialect translation
 _openai_client = None
@@ -12,27 +25,28 @@ _openai_client = None
 def _get_openai_client():
     global _openai_client
     if _openai_client is None:
-        api_key = None
+        api_key = os.environ.get('OPENAI_API_KEY', 'key')
         _openai_client = OpenAI(api_key=api_key)
     return _openai_client
 
-# Voice mapping for each dialect (male and female)
+# Voice mapping for each dialect (ElevenLabs voice IDs)
+# Using voices available on the free plan: George, Bella, Antoni, Arnold, Adam
 DIALECT_VOICES = {
     'egyptian': {
-        'male': 'ar-EG-ShakirNeural',
-        'female': 'ar-EG-SalmaNeural'
+        'male': 'JBFqnCBsd6RMkjVDRZzb',    # George – warm, natural male
+        'female': 'EXAVITQu4vr4xnSDxMaL',   # Bella – soft, natural female
     },
     'gulf': {
-        'male': 'ar-SA-HamedNeural',
-        'female': 'ar-SA-ZariyahNeural'
+        'male': 'ErXwobaYiN019PkySvjV',    # Antoni – clear, natural male
+        'female': 'EXAVITQu4vr4xnSDxMaL',   # Bella – soft, natural female
     },
     'levantine': {
-        'male': 'ar-SY-LaithNeural',
-        'female': 'ar-SY-AmanyNeural'
+        'male': 'VR6AewLTigWG4xSOukaG',    # Arnold – strong, authoritative
+        'female': 'EXAVITQu4vr4xnSDxMaL',   # Bella – soft, natural female
     },
     'maghrebi': {
-        'male': 'ar-MA-JamalNeural',
-        'female': 'ar-MA-MounaNeural'
+        'male': 'pNInz6obpgDQGcFmaJgB',    # Adam – deep, natural male
+        'female': 'EXAVITQu4vr4xnSDxMaL',   # Bella – soft, natural female
     }
 }
 
@@ -945,22 +959,36 @@ def convert_text_with_ai(text, source_dialect, target_dialect):
 
 
 async def synthesize_speech(text, dialect, gender='male', pitch='+0Hz', rate='+0%'):
-    """Synthesize speech using edge-tts with dialect-appropriate voice."""
-    voice = DIALECT_VOICES.get(dialect, DIALECT_VOICES['egyptian']).get(gender, 'ar-EG-ShakirNeural')
+    """Synthesize speech using ElevenLabs with dialect-appropriate voice."""
+    voice_id = DIALECT_VOICES.get(dialect, DIALECT_VOICES['egyptian']).get(
+        gender, DIALECT_VOICES['egyptian']['male']
+    )
 
-    communicate = edge_tts.Communicate(text, voice, pitch=pitch, rate=rate)
-    audio_bytes = b""
-    async for chunk in communicate.stream():
-        if chunk["type"] == "audio":
-            audio_bytes += chunk["data"]
+    # Run the blocking ElevenLabs call in a thread pool
+    loop = asyncio.get_event_loop()
+    audio_bytes = await loop.run_in_executor(None, _synthesize_elevenlabs, text, voice_id)
+    return audio_bytes
 
+
+def _synthesize_elevenlabs(text, voice_id):
+    """Call ElevenLabs TTS API (blocking) and return raw MP3 bytes."""
+    client = _get_elevenlabs_client()
+    audio_iterator = client.text_to_speech.convert(
+        voice_id=voice_id,
+        text=text,
+        model_id='eleven_multilingual_v2',
+        output_format='mp3_44100_128',
+    )
+    # The SDK returns an iterator of bytes chunks — join them
+    audio_bytes = b''
+    for chunk in audio_iterator:
+        audio_bytes += chunk
     return audio_bytes
 
 
 def synthesize_speech_sync(text, dialect, gender='male', pitch='+0Hz', rate='+0%'):
     """Synchronous wrapper for synthesize_speech."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(synthesize_speech(text, dialect, gender, pitch, rate))
-    finally:
-        loop.close()
+    voice_id = DIALECT_VOICES.get(dialect, DIALECT_VOICES['egyptian']).get(
+        gender, DIALECT_VOICES['egyptian']['male']
+    )
+    return _synthesize_elevenlabs(text, voice_id)

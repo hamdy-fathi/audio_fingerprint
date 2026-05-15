@@ -8,8 +8,11 @@ scikit-learn
 matplotlib
 joblib
 openai-whisper
-edge-tts
+elevenlabs
 pydub
 soundfile
 websockets
 aiofiles
+umap-learn
+xgboost
+shap

@@ -49,6 +49,16 @@ export async function getFeatures(fileId) {
   return res.json();
 }
 
+export async function getUMAPProjection(fileId) {
+  const res = await fetch(`${API_BASE}/umap/project`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ file_id: fileId }),
+  });
+  if (!res.ok) throw new Error('UMAP projection failed');
+  return res.json();
+}
+
 export async function transcribeFile(fileId) {
   const res = await fetch(`${API_BASE}/transcribe`, {
     method: 'POST',

@@ -4,12 +4,12 @@ import { BarChart3, FileText, RefreshCw, Sliders, Search, Paperclip, AudioLines 
 import FileUploader from '@/components/FileUploader';
 import AudioPlayer from '@/components/AudioPlayer';
 import SpectrogramViewer from '@/components/SpectrogramViewer';
-import FeatureVisualizer from '@/components/FeatureVisualizer';
 import ClassificationResult from '@/components/ClassificationResult';
+import UMAPVisualizer from '@/components/UMAPVisualizer';
 import TranscriptionPanel from '@/components/TranscriptionPanel';
 import DialectConverter from '@/components/DialectConverter';
 import AudioMixer from '@/components/AudioMixer';
-import { getSpectrogram, classifyDialect, getFeatures, transcribeFile } from '@/lib/api';
+import { getSpectrogram, classifyDialect, getUMAPProjection, transcribeFile } from '@/lib/api';
 
 const TABS = [
   { key: 'analyze', icon: BarChart3, label: 'Analyze & Classify' },
@@ -27,7 +27,7 @@ export default function Home() {
 
   const [specData, setSpecData] = useState(null);
   const [classData, setClassData] = useState(null);
-  const [featData, setFeatData] = useState(null);
+  const [umapData, setUmapData] = useState(null);
   const [transSegments, setTransSegments] = useState([]);
   const [loadingSpec, setLoadingSpec] = useState(false);
   const [loadingTrans, setLoadingTrans] = useState(false);
@@ -38,7 +38,7 @@ export default function Home() {
     setFileDialect(dialect);
     setSpecData(null);
     setClassData(null);
-    setFeatData(null);
+    setUmapData(null);
     setTransSegments([]);
   }, []);
 
@@ -46,14 +46,14 @@ export default function Home() {
     if (!fileId) return;
     setLoadingSpec(true);
     try {
-      const [spec, cls, feat] = await Promise.all([
+      const [spec, cls, umap] = await Promise.all([
         getSpectrogram(fileId),
         classifyDialect(fileId),
-        getFeatures(fileId),
+        getUMAPProjection(fileId),
       ]);
       setSpecData(spec);
       setClassData(cls);
-      setFeatData(feat);
+      setUmapData(umap);
     } catch (e) {
       alert('Analysis error: ' + e.message);
     }
@@ -128,7 +128,7 @@ export default function Home() {
                 <>
                   <SpectrogramViewer spectrogramData={specData} />
                   <ClassificationResult classificationData={classData} />
-                  <FeatureVisualizer featureData={featData} />
+                  <UMAPVisualizer umapData={umapData} />
                 </>
               )}
             </>

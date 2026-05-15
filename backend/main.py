@@ -1,6 +1,9 @@
 """
 FastAPI main application for Arabic Dialect Detection.
 """
+import os
+os.environ["NUMBA_DISABLE_JIT"] = "1"  # Must be set before numba is imported (Python 3.13 compat)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.upload import router as upload_router
@@ -8,6 +11,7 @@ from routes.analysis import router as analysis_router
 from routes.transcription import router as transcription_router
 from routes.conversion import router as conversion_router
 from routes.mixer import router as mixer_router
+from routes.umap import router as umap_router
 
 app = FastAPI(
     title="Arabic Dialect Detection API",
@@ -30,6 +34,7 @@ app.include_router(analysis_router)
 app.include_router(transcription_router)
 app.include_router(conversion_router)
 app.include_router(mixer_router)
+app.include_router(umap_router)
 
 
 @app.get("/")

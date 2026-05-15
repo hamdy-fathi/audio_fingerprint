@@ -58,15 +58,20 @@ def transcribe_file(file_path, language="ar"):
         task="transcribe",
         fp16=(device == "cuda"),       # half-precision on GPU for speed
         condition_on_previous_text=True,
+        word_timestamps=True,          # enable word-level timing
     )
 
+    # Build word-by-word segments — each word is its own segment
     segments = []
     for seg in result.get("segments", []):
-        segments.append({
-            "start": round(seg["start"], 2),
-            "end": round(seg["end"], 2),
-            "text": seg["text"].strip()
-        })
+        for w in seg.get("words", []):
+            word_text = w["word"].strip()
+            if word_text:
+                segments.append({
+                    "start": round(w["start"], 2),
+                    "end": round(w["end"], 2),
+                    "text": word_text,
+                })
 
     return {
         "full_text": result.get("text", "").strip(),
@@ -90,6 +95,7 @@ def transcribe_segments_generator(file_path, language="ar"):
         task="transcribe",
         fp16=(device == "cuda"),
         condition_on_previous_text=True,
+        word_timestamps=True,
     )
 
     for seg in result.get("segments", []):

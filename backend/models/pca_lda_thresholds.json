@@ -1,0 +1,130 @@
+{
+  "dialects": [
+    "Egyptian Arabic",
+    "Gulf Arabic",
+    "Levantine Arabic",
+    "Maghrebi Arabic"
+  ],
+  "pca": {
+    "explained_variance_ratio": [
+      0.2987043458716819,
+      0.06439933052602935
+    ],
+    "thresholds_pc1": {
+      "Egyptian Arabic_vs_Gulf Arabic": {
+        "threshold": 0.4014,
+        "fisher_score": 0.2935
+      },
+      "Egyptian Arabic_vs_Levantine Arabic": {
+        "threshold": -0.6041,
+        "fisher_score": 0.0404
+      },
+      "Egyptian Arabic_vs_Maghrebi Arabic": {
+        "threshold": -0.3198,
+        "fisher_score": 0.109
+      },
+      "Gulf Arabic_vs_Levantine Arabic": {
+        "threshold": 0.4641,
+        "fisher_score": 0.2762
+      },
+      "Gulf Arabic_vs_Maghrebi Arabic": {
+        "threshold": 0.5569,
+        "fisher_score": 0.2459
+      },
+      "Levantine Arabic_vs_Maghrebi Arabic": {
+        "threshold": -0.2235,
+        "fisher_score": 0.0714
+      }
+    },
+    "thresholds_pc2": {
+      "Egyptian Arabic_vs_Gulf Arabic": {
+        "threshold": 0.0391,
+        "fisher_score": 0.0252
+      },
+      "Egyptian Arabic_vs_Levantine Arabic": {
+        "threshold": 0.2996,
+        "fisher_score": 0.13
+      },
+      "Egyptian Arabic_vs_Maghrebi Arabic": {
+        "threshold": -0.2733,
+        "fisher_score": 0.2107
+      },
+      "Gulf Arabic_vs_Levantine Arabic": {
+        "threshold": 0.2604,
+        "fisher_score": 0.1543
+      },
+      "Gulf Arabic_vs_Maghrebi Arabic": {
+        "threshold": -0.3156,
+        "fisher_score": 0.1812
+      },
+      "Levantine Arabic_vs_Maghrebi Arabic": {
+        "threshold": -0.0652,
+        "fisher_score": 0.3558
+      }
+    },
+    "dialect_centroids": {
+      "Egyptian Arabic": {
+        "pc1": -0.7648,
+        "pc2": 0.0814
+      },
+      "Gulf Arabic": {
+        "pc1": 1.4519,
+        "pc2": -0.0041
+      },
+      "Levantine Arabic": {
+        "pc1": -0.4675,
+        "pc2": 0.5093
+      },
+      "Maghrebi Arabic": {
+        "pc1": -0.0485,
+        "pc2": -0.5767
+      }
+    }
+  },
+  "lda": {
+    "thresholds_ld1": {
+      "Egyptian Arabic_vs_Gulf Arabic": {
+        "threshold": -0.4962,
+        "fisher_score": 0.6527
+      },
+      "Egyptian Arabic_vs_Levantine Arabic": {
+        "threshold": -0.5379,
+        "fisher_score": 0.5717
+      },
+      "Egyptian Arabic_vs_Maghrebi Arabic": {
+        "threshold": 0.4305,
+        "fisher_score": 2.4525
+      },
+      "Gulf Arabic_vs_Levantine Arabic": {
+        "threshold": -0.205,
+        "fisher_score": 0.0584
+      },
+      "Gulf Arabic_vs_Maghrebi Arabic": {
+        "threshold": 0.7224,
+        "fisher_score": 1.8345
+      },
+      "Levantine Arabic_vs_Maghrebi Arabic": {
+        "threshold": 0.7276,
+        "fisher_score": 1.8207
+      }
+    },
+    "dialect_centroids": {
+      "Egyptian Arabic": {
+        "ld1": -0.832,
+        "ld2": 0.6482
+      },
+      "Gulf Arabic": {
+        "ld1": -0.1764,
+        "ld2": -1.0822
+      },
+      "Levantine Arabic": {
+        "ld1": -0.2359,
+        "ld2": 0.0292
+      },
+      "Maghrebi Arabic": {
+        "ld1": 1.5862,
+        "ld2": 0.3152
+      }
+    }
+  }
+}
