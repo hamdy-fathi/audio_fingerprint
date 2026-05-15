@@ -1,4 +1,4 @@
-<![CDATA[# 🎙️ Arabic Dialect Fingerprinting System
+# 🎙️ Arabic Dialect Fingerprinting System
 
 > An AI-powered web application that analyzes spoken Arabic audio to detect, classify, transcribe, and convert between four major Arabic dialects using XGBoost, Whisper, SHAP explainability, and UMAP visualization.
 
@@ -386,4 +386,3 @@ API keys are loaded from **environment variables** at runtime. Never commit API 
 # How keys are loaded (dialect_converter.py)
 api_key = os.environ.get('OPENAI_API_KEY', 'key')
 ```
-]]>
