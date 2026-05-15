@@ -12,15 +12,17 @@
 
 ---
 
+
 ### Spectrogram & Classification Results
 ![Classification Results](docs/screenshots/02_classification_results.png)
 *After clicking "Analyze & Classify", the system generates a full spectrogram visualization and runs the XGBoost classifier. Here an Egyptian sample is classified as **Egyptian Arabic with 96.8% confidence**. The right panel shows the Top 10 Feature Importances color-coded by category (Delta², Spectral Contrast, MFCC, RMS Energy).*
 
----
-
 ### UMAP 2D Dialect Space Projection
 ![UMAP Visualization](docs/screenshots/03_umap_visualization.png)
 *The UMAP Dialect Space card projects the uploaded audio into a pre-fitted 2D scatter plot. Each dot represents a training sample colored by dialect. The ★ marker shows where the user's file lands relative to the learned dialect clusters, with exact UMAP coordinates displayed.*
+
+#### 🎬 Analyze & Classify — Live Demo
+![Analyze Demo](docs/gifs/Analyze.gif)
 
 ---
 
@@ -28,17 +30,26 @@
 ![Transcription Tab](docs/screenshots/04_transcription_tab.png)
 *The Transcription tab uses OpenAI's Whisper Large-v3 model running locally with CUDA acceleration. It produces word-level timestamped segments with a live-highlight feature synced to audio playback.*
 
+#### 🎬 Transcription — Live Demo
+![Transcription Demo](docs/gifs/Transcription.gif)
+
 ---
 
 ### Dialect Converter — Cross-Dialect Voice Conversion
 ![Dialect Converter](docs/screenshots/05_dialect_converter.png)
 *The Dialect Converter allows selecting a target dialect (Egyptian, Gulf, Levantine, Maghrebi), choosing between Dictionary-based word mapping or AI Translation (OpenAI GPT-4o), and configuring voice controls (gender, pitch, speed). The converted text is synthesized using ElevenLabs TTS with dialect-specific voices.*
 
+#### 🎬 Dialect Converter — Live Demo
+![Dialect Converter Demo](docs/gifs/Dialect_Converter.gif)
+
 ---
 
 ### Audio Mixer — Weighted Dialect Blending
 ![Audio Mixer](docs/screenshots/06_audio_mixer.png)
 *The Audio Mixer lets users select two audio files from the sample library or upload custom files, adjust a weighted blend slider (0-100%), and run "Mix & Classify" to see how blending affects the dialect classification.*
+
+#### 🎬 Audio Mixer — Live Demo
+![Audio Mixer Demo](docs/gifs/Mixer.gif)
 
 ---
 
